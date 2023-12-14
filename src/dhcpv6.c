@@ -135,6 +135,9 @@ static char *dhcpv6_msg_to_str(enum dhcpv6_msg msg)
 	case DHCPV6_MSG_REQUEST:
 		return "REQUEST";
 
+	case DHCPV6_MSG_CONFIRM:
+		return "CONFIRM";
+
 	case DHCPV6_MSG_RENEW:
 		return "RENEW";
 
@@ -155,6 +158,78 @@ static char *dhcpv6_msg_to_str(enum dhcpv6_msg msg)
 
 	case DHCPV6_MSG_INFO_REQ:
 		return "INFORMATION REQUEST";
+
+	case DHCPV6_MSG_RELAY_FORW:
+		return "RELAY-FORW";
+
+	case DHCPV6_MSG_RELAY_REPL:
+		return "RELAY-REPL";
+
+	case DHCPV6_MSG_LEASEQUERY:
+		return "LEASEQUERY";
+
+	case DHCPV6_MSG_LEASEQUERY_REPLY:
+		return "LEASEQUERY-REPLY";
+
+	case DHCPV6_MSG_LEASEQUERY_DONE:
+		return "LEASEQUERY-DONE";
+
+	case DHCPV6_MSG_LEASEQUERY_DATA:
+		return "LEASEQUERY-DATA";
+
+	case DHCPV6_MSG_RECONFIGURE_REQUEST:
+		return "RECONFIGURE-REQUEST";
+
+	case DHCPV6_MSG_RECONFIGURE_REPLY:
+		return "RECONFIGURE-REPLY";
+
+	case DHCPV6_MSG_DHCPV4_QUERY:
+		return "DHCPV4-QUERY";
+
+	case DHCPV6_MSG_DHCPV4_RESPONSE:
+		return "DHCPV4-RESPONSE";
+
+	case DHCPV6_MSG_ACTIVELEASEQUERY:
+		return "ACTIVELEASEQUERY";
+
+	case DHCPV6_MSG_STARTTLS:
+		return "STARTTLS";
+
+	case DHCPV6_MSG_BNDUPD:
+		return "BNDUPD";
+
+	case DHCPV6_MSG_BNDREPLY:
+		return "BNDREPLY";
+
+	case DHCPV6_MSG_POOLREQ:
+		return "POOLREQ";
+
+	case DHCPV6_MSG_POOLRESP:
+		return "POOLRESP";
+
+	case DHCPV6_MSG_UPDREQ:
+		return "UPDREQ";
+
+	case DHCPV6_MSG_UPDREQALL:
+		return "UPDREQALL";
+
+	case DHCPV6_MSG_UPDDONE:
+		return "UPDDONE";
+
+	case DHCPV6_MSG_CONNECT:
+		return "CONNECT";
+
+	case DHCPV6_MSG_CONNECTREPLY:
+		return "CONNECTREPLY";
+
+	case DHCPV6_MSG_DISCONNECT:
+		return "DISCONNECT";
+
+	case DHCPV6_MSG_STATE:
+		return "STATE";
+
+	case DHCPV6_MSG_CONTACT:
+		return "CONTACT";
 
 	default:
 		break;
