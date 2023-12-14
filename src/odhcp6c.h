@@ -185,6 +185,22 @@ enum dhcpv6_status {
 	DHCPV6_NotOnLink = 4,
 	DHCPV6_UseMulticast = 5,
 	DHCPV6_NoPrefixAvail = 6,
+	DHCPV6_UnknownQueryType = 7,
+	DHCPV6_MalformedQuery = 8,
+	DHCPV6_NotConfigured = 9,
+	DHCPV6_NotAllowed = 10,
+	DHCPV6_QueryTerminated = 11,
+	DHCPV6_DataMissing = 12,
+	DHCPV6_CatchUpComplete = 13,
+	DHCPV6_NotSupported = 14,
+	DHCPV6_TLSConnectionRefused = 15,
+	DHCPV6_AddressInUse = 16,
+	DHCPV6_ConfigurationConflict = 17,
+	DHCPV6_MissingBindingInformation = 18,
+	DHCPV6_OutdatedBindingInformation = 19,
+	DHCPV6_ServerShuttingDown = 20,
+	DHCPV6_DNSUpdateNotSupported = 21,
+	DHCPV6_ExcessiveTimeSkew = 22,
 	_DHCPV6_Status_Max
 };
 

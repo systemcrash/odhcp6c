@@ -262,6 +262,54 @@ static char *dhcpv6_status_code_to_str(uint16_t code)
 	case DHCPV6_NoPrefixAvail:
 		return "No Prefix Available";
 
+	case DHCPV6_UnknownQueryType:
+		return "Unknown Query Type";
+
+	case DHCPV6_MalformedQuery:
+		return "Malformed Query";
+
+	case DHCPV6_NotConfigured:
+		return "Not Configured";
+
+	case DHCPV6_NotAllowed:
+		return "Not Allowed";
+
+	case DHCPV6_QueryTerminated:
+		return "Query Terminated";
+
+	case DHCPV6_DataMissing:
+		return "Data Missing";
+
+	case DHCPV6_CatchUpComplete:
+		return "CatchUp Complete";
+
+	case DHCPV6_NotSupported:
+		return "Not Supported";
+
+	case DHCPV6_TLSConnectionRefused:
+		return "TLS Connection Refused";
+
+	case DHCPV6_AddressInUse:
+		return "Address In Use";
+
+	case DHCPV6_ConfigurationConflict:
+		return "Configuration Conflict";
+
+	case DHCPV6_MissingBindingInformation:
+		return "Missing Binding Information";
+
+	case DHCPV6_OutdatedBindingInformation:
+		return "Outdated Binding Information";
+
+	case DHCPV6_ServerShuttingDown:
+		return "Server Shutting Down";
+
+	case DHCPV6_DNSUpdateNotSupported:
+		return "DNS Update Not Supported";
+
+	case DHCPV6_ExcessiveTimeSkew:
+		return "Excessive Time Skew";
+
 	default:
 		break;
 	}
