@@ -78,6 +78,7 @@ Environment:
 * HNIDF			A MIPv6 Home Network Identifier FQDN
 * VDINF			A MIPv6 Visited Home Network text
 * LOST_FQDN		A space-separated list of LoST Server FQDNs.
+* CAPWAP_IP		A space-separated list of CAPWAP IPv6 addresses.
 * SIP_IP		A space-separated list of SIP servers
 * SIP_DOMAIN		A space-separated list of SIP domains
 * OPTION_<num>		Custom option received as base-16

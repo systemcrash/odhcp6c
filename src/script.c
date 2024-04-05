@@ -435,6 +435,7 @@ void script_call(const char *status, int delay, bool resume)
 		size_t posixtz_len, tzdbtz_len;
 		size_t hnidf_len, vdinf_len;
 		size_t v6lost_len;
+		size_t capwap_len;
 		size_t sip_ip_len, sip_fqdn_len, aftr_name_len, cer_len, addr_len;
 		size_t s46_mapt_len, s46_mape_len, s46_lw_len, passthru_len;
 
@@ -461,6 +462,7 @@ void script_call(const char *status, int delay, bool resume)
 		uint8_t *hnidf = odhcp6c_get_state(STATE_MIP6_HNIDF, &hnidf_len);
 		uint8_t *vdinf = odhcp6c_get_state(STATE_MIP6_VDINF, &vdinf_len);
 		uint8_t *v6lost = odhcp6c_get_state(STATE_LOST_FQDN, &v6lost_len);
+		struct in6_addr *capwap = odhcp6c_get_state(STATE_CAPWAP_IP, &capwap_len);
 		struct in6_addr *ntp = odhcp6c_get_state(STATE_NTP_IP, &ntp_ip_len);
 		uint8_t *ntp_dns = odhcp6c_get_state(STATE_NTP_FQDN, &ntp_dns_len);
 		struct in6_addr *sip = odhcp6c_get_state(STATE_SIP_IP, &sip_ip_len);
@@ -496,6 +498,7 @@ void script_call(const char *status, int delay, bool resume)
 		fqdn_to_env("HNIDF", hnidf, hnidf_len);
 		search_to_env("VDINF", vdinf, vdinf_len);
 		fqdn_to_env("LOST_FQDN", v6lost, v6lost_len);
+		ipv6_to_env("CAPWAP_IP", capwap, capwap_len / sizeof(*capwap));
 		ipv6_to_env("NTP_IP", ntp, ntp_ip_len / sizeof(*ntp));
 		fqdn_to_env("NTP_FQDN", ntp_dns, ntp_dns_len);
 		ipv6_to_env("SIP_IP", sip, sip_ip_len / sizeof(*sip));
