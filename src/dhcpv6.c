@@ -1245,6 +1245,7 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 		odhcp6c_clear_state(STATE_TZDB_TZ);
 		odhcp6c_clear_state(STATE_MIP6_HNIDF);
 		odhcp6c_clear_state(STATE_MIP6_VDINF);
+		odhcp6c_clear_state(STATE_LOST_FQDN);
 		odhcp6c_clear_state(STATE_NTP_IP);
 		odhcp6c_clear_state(STATE_NTP_FQDN);
 		odhcp6c_clear_state(STATE_SIP_IP);
@@ -1382,6 +1383,9 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 			} else if (otype == DHCPV6_OPT_MIP6_VDINF) {
 				// Type 50
 				odhcp6c_add_state(STATE_MIP6_VDINF, odata, olen);
+			} else if (otype == DHCPV6_OPT_V6_LOST) {
+				// Type 51
+				odhcp6c_add_state(STATE_LOST_FQDN, odata, olen);
 			} else if (otype == DHCPV6_OPT_NTP_SERVER) {
 				// Type 56
 				uint16_t stype, slen;
