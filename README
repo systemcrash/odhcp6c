@@ -75,6 +75,8 @@ Environment:
 * PANA_IP		A space-separated list of PANA agent IPv6 addresses
 * POSIX_TZ		A POSIX Timezone string e.g. EST5EDT4,M3.2.0/02:00,M11.1.0/02:00
 * TZDB_TZ		A Timezone DB string e.g. Europe/Zurich
+* HNIDF			A MIPv6 Home Network Identifier FQDN
+* VDINF			A MIPv6 Visited Home Network text
 * SIP_IP		A space-separated list of SIP servers
 * SIP_DOMAIN		A space-separated list of SIP domains
 * OPTION_<num>		Custom option received as base-16
