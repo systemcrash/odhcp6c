@@ -73,6 +73,8 @@ Environment:
 * BCMCS_IP		A space-separated list of BCMCS server IPv6 addresses
 * BCMCS_FQDN	A space-separated list of BCMCS server FQDNs
 * PANA_IP		A space-separated list of PANA agent IPv6 addresses
+* POSIX_TZ		A POSIX Timezone string e.g. EST5EDT4,M3.2.0/02:00,M11.1.0/02:00
+* TZDB_TZ		A Timezone DB string e.g. Europe/Zurich
 * SIP_IP		A space-separated list of SIP servers
 * SIP_DOMAIN		A space-separated list of SIP domains
 * OPTION_<num>		Custom option received as base-16
