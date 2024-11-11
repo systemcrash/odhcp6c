@@ -529,6 +529,8 @@ int main(_unused int argc, char* const argv[])
 		odhcp6c_clear_state(STATE_NIS_FQDN);
 		odhcp6c_clear_state(STATE_NISP_FQDN);
 		odhcp6c_clear_state(STATE_SNTP_IP);
+		odhcp6c_clear_state(STATE_BCMCS_IP);
+		odhcp6c_clear_state(STATE_BCMCS_FQDN);
 		odhcp6c_clear_state(STATE_NTP_IP);
 		odhcp6c_clear_state(STATE_NTP_FQDN);
 		odhcp6c_clear_state(STATE_SIP_IP);

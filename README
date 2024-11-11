@@ -70,6 +70,8 @@ Environment:
 * NISP_FQDN		A space-separated list of NISP server FQDNs
 * SNTP_IP		A space-separated list of SNTP server IP addresses
 * SNTP_FQDN		A space-separated list of SNTP server FQDNs
+* BCMCS_IP		A space-separated list of BCMCS server IPv6 addresses
+* BCMCS_FQDN	A space-separated list of BCMCS server FQDNs
 * SIP_IP		A space-separated list of SIP servers
 * SIP_DOMAIN		A space-separated list of SIP domains
 * OPTION_<num>		Custom option received as base-16

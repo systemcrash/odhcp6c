@@ -378,6 +378,8 @@ int init_dhcpv6(const char *ifname, unsigned int options, int sk_prio, int sol_t
 			htons(DHCPV6_OPT_DNS_SERVERS),
 			htons(DHCPV6_OPT_DNS_DOMAIN),
 			htons(DHCPV6_OPT_SNTP_SERVERS),
+			htons(DHCPV6_OPT_BCMCS_SERVER_D),
+			htons(DHCPV6_OPT_BCMCS_SERVER_A),
 			htons(DHCPV6_OPT_NTP_SERVER),
 			htons(DHCPV6_OPT_AFTR_NAME),
 			htons(DHCPV6_OPT_PD_EXCLUDE),
@@ -1235,6 +1237,8 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 		odhcp6c_clear_state(STATE_NIS_FQDN);
 		odhcp6c_clear_state(STATE_NISP_FQDN);
 		odhcp6c_clear_state(STATE_SNTP_IP);
+		odhcp6c_clear_state(STATE_BCMCS_IP);
+		odhcp6c_clear_state(STATE_BCMCS_FQDN);
 		odhcp6c_clear_state(STATE_NTP_IP);
 		odhcp6c_clear_state(STATE_NTP_FQDN);
 		odhcp6c_clear_state(STATE_SIP_IP);
@@ -1349,6 +1353,13 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 			} else if (otype == DHCPV6_OPT_INFO_REFRESH && olen >= 4) {
 				// Type 32
 				refresh = ntohl_unaligned(odata);
+			} else if (otype == DHCPV6_OPT_BCMCS_SERVER_D) {
+				// Type 33
+				odhcp6c_add_state(STATE_BCMCS_FQDN, odata, olen);
+			} else if (otype == DHCPV6_OPT_BCMCS_SERVER_A) {
+				// Type 34
+				if (olen % 16 == 0)
+					odhcp6c_add_state(STATE_BCMCS_IP, odata, olen);
 			} else if (otype == DHCPV6_OPT_NTP_SERVER) {
 				// Type 56
 				uint16_t stype, slen;

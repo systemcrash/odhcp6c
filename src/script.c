@@ -430,6 +430,7 @@ void script_call(const char *status, int delay, bool resume)
 	} else if (pid == 0) {
 		size_t dns_len, search_len, custom_len, sntp_ip_len, ntp_ip_len, ntp_dns_len;
 		size_t nis_ip_len, nisp_ip_len, nis_dns_len, nisp_dns_len;
+		size_t bcmcs_ip_len, bcmcs_dns_len;
 		size_t sip_ip_len, sip_fqdn_len, aftr_name_len, cer_len, addr_len;
 		size_t s46_mapt_len, s46_mape_len, s46_lw_len, passthru_len;
 
@@ -448,6 +449,8 @@ void script_call(const char *status, int delay, bool resume)
 		uint8_t *nis_dns = odhcp6c_get_state(STATE_NIS_FQDN, &nis_dns_len);
 		uint8_t *nisp_dns = odhcp6c_get_state(STATE_NISP_FQDN, &nisp_dns_len);
 		struct in6_addr *sntp = odhcp6c_get_state(STATE_SNTP_IP, &sntp_ip_len);
+		struct in6_addr *bcmcs = odhcp6c_get_state(STATE_BCMCS_IP, &bcmcs_ip_len);
+		uint8_t *bcmcs_dns = odhcp6c_get_state(STATE_BCMCS_FQDN, &bcmcs_dns_len);
 		struct in6_addr *ntp = odhcp6c_get_state(STATE_NTP_IP, &ntp_ip_len);
 		uint8_t *ntp_dns = odhcp6c_get_state(STATE_NTP_FQDN, &ntp_dns_len);
 		struct in6_addr *sip = odhcp6c_get_state(STATE_SIP_IP, &sip_ip_len);
@@ -475,6 +478,8 @@ void script_call(const char *status, int delay, bool resume)
 		fqdn_to_env("NIS_FQDN", nis_dns, nis_dns_len);
 		fqdn_to_env("NISP_FQDN", nisp_dns, nisp_dns_len);
 		ipv6_to_env("SNTP_IP", sntp, sntp_ip_len / sizeof(*sntp));
+		ipv6_to_env("BCMCS_IP", bcmcs, bcmcs_ip_len / sizeof(*bcmcs));
+		fqdn_to_env("BCMCS_FQDN", bcmcs_dns, bcmcs_dns_len);
 		ipv6_to_env("NTP_IP", ntp, ntp_ip_len / sizeof(*ntp));
 		fqdn_to_env("NTP_FQDN", ntp_dns, ntp_dns_len);
 		ipv6_to_env("SIP_IP", sip, sip_ip_len / sizeof(*sip));
