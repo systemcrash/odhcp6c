@@ -64,6 +64,10 @@ States:
 Environment:
 * RDNSS			A space-separated list of recursive DNS servers
 * DOMAINS		A space-separated list of DNS search domains
+* NIS_IP		A space-separated list of NIS server IPv6 addresses
+* NIS_FQDN		A space-separated list of NIS server FQDNs
+* NISP_IP		A space-separated list of NISP server IPv6 addresses
+* NISP_FQDN		A space-separated list of NISP server FQDNs
 * SNTP_IP		A space-separated list of SNTP server IP addresses
 * SNTP_FQDN		A space-separated list of SNTP server FQDNs
 * SIP_IP		A space-separated list of SIP servers

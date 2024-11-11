@@ -1230,6 +1230,10 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 	if (opt) {
 		odhcp6c_clear_state(STATE_DNS);
 		odhcp6c_clear_state(STATE_SEARCH);
+		odhcp6c_clear_state(STATE_NIS_IP);
+		odhcp6c_clear_state(STATE_NISP_IP);
+		odhcp6c_clear_state(STATE_NIS_FQDN);
+		odhcp6c_clear_state(STATE_NISP_FQDN);
 		odhcp6c_clear_state(STATE_SNTP_IP);
 		odhcp6c_clear_state(STATE_NTP_IP);
 		odhcp6c_clear_state(STATE_NTP_FQDN);
@@ -1324,6 +1328,20 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 			} else if (otype == DHCPV6_OPT_DNS_DOMAIN) {
 				// Type 24
 				odhcp6c_add_state(STATE_SEARCH, odata, olen);
+			} else if (otype == DHCPV6_OPT_NIS_SERVERS) {
+				// Type 27
+				if (olen % 16 == 0)
+					odhcp6c_add_state(STATE_NIS_IP, odata, olen);
+			} else if (otype == DHCPV6_OPT_NISP_SERVERS) {
+				// Type 28
+				if (olen % 16 == 0)
+					odhcp6c_add_state(STATE_NISP_IP, odata, olen);
+			} else if (otype == DHCPV6_OPT_NIS_DOMAIN_NAME) {
+				// Type 29
+				odhcp6c_add_state(STATE_NIS_FQDN, odata, olen);
+			} else if (otype == DHCPV6_OPT_NISP_DOMAIN_NAME) {
+				// Type 30
+				odhcp6c_add_state(STATE_NISP_FQDN, odata, olen);
 			} else if (otype == DHCPV6_OPT_SNTP_SERVERS) {
 				// Type 31
 				if (olen % 16 == 0)

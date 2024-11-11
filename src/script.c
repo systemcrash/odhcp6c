@@ -429,6 +429,7 @@ void script_call(const char *status, int delay, bool resume)
 
 	} else if (pid == 0) {
 		size_t dns_len, search_len, custom_len, sntp_ip_len, ntp_ip_len, ntp_dns_len;
+		size_t nis_ip_len, nisp_ip_len, nis_dns_len, nisp_dns_len;
 		size_t sip_ip_len, sip_fqdn_len, aftr_name_len, cer_len, addr_len;
 		size_t s46_mapt_len, s46_mape_len, s46_lw_len, passthru_len;
 
@@ -442,6 +443,10 @@ void script_call(const char *status, int delay, bool resume)
 		struct in6_addr *dns = odhcp6c_get_state(STATE_DNS, &dns_len);
 		uint8_t *search = odhcp6c_get_state(STATE_SEARCH, &search_len);
 		uint8_t *custom = odhcp6c_get_state(STATE_CUSTOM_OPTS, &custom_len);
+		struct in6_addr *nis = odhcp6c_get_state(STATE_NIS_IP, &nis_ip_len);
+		struct in6_addr *nisp = odhcp6c_get_state(STATE_NISP_IP, &nisp_ip_len);
+		uint8_t *nis_dns = odhcp6c_get_state(STATE_NIS_FQDN, &nis_dns_len);
+		uint8_t *nisp_dns = odhcp6c_get_state(STATE_NISP_FQDN, &nisp_dns_len);
 		struct in6_addr *sntp = odhcp6c_get_state(STATE_SNTP_IP, &sntp_ip_len);
 		struct in6_addr *ntp = odhcp6c_get_state(STATE_NTP_IP, &ntp_ip_len);
 		uint8_t *ntp_dns = odhcp6c_get_state(STATE_NTP_FQDN, &ntp_dns_len);
@@ -465,6 +470,10 @@ void script_call(const char *status, int delay, bool resume)
 
 		ipv6_to_env("SERVER", addr, addr_len / sizeof(*addr));
 		ipv6_to_env("RDNSS", dns, dns_len / sizeof(*dns));
+		ipv6_to_env("NIS_IP", nis, nis_ip_len / sizeof(*nis));
+		ipv6_to_env("NISP_IP", nisp, nisp_ip_len / sizeof(*nisp));
+		fqdn_to_env("NIS_FQDN", nis_dns, nis_dns_len);
+		fqdn_to_env("NISP_FQDN", nisp_dns, nisp_dns_len);
 		ipv6_to_env("SNTP_IP", sntp, sntp_ip_len / sizeof(*sntp));
 		ipv6_to_env("NTP_IP", ntp, ntp_ip_len / sizeof(*ntp));
 		fqdn_to_env("NTP_FQDN", ntp_dns, ntp_dns_len);
