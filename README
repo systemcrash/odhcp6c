@@ -72,6 +72,7 @@ Environment:
 * SNTP_FQDN		A space-separated list of SNTP server FQDNs
 * BCMCS_IP		A space-separated list of BCMCS server IPv6 addresses
 * BCMCS_FQDN	A space-separated list of BCMCS server FQDNs
+* PANA_IP		A space-separated list of PANA agent IPv6 addresses
 * SIP_IP		A space-separated list of SIP servers
 * SIP_DOMAIN		A space-separated list of SIP domains
 * OPTION_<num>		Custom option received as base-16

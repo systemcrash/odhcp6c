@@ -380,6 +380,7 @@ int init_dhcpv6(const char *ifname, unsigned int options, int sk_prio, int sol_t
 			htons(DHCPV6_OPT_SNTP_SERVERS),
 			htons(DHCPV6_OPT_BCMCS_SERVER_D),
 			htons(DHCPV6_OPT_BCMCS_SERVER_A),
+			htons(DHCPV6_OPT_PANA_AGENT),
 			htons(DHCPV6_OPT_NTP_SERVER),
 			htons(DHCPV6_OPT_AFTR_NAME),
 			htons(DHCPV6_OPT_PD_EXCLUDE),
@@ -1239,6 +1240,7 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 		odhcp6c_clear_state(STATE_SNTP_IP);
 		odhcp6c_clear_state(STATE_BCMCS_IP);
 		odhcp6c_clear_state(STATE_BCMCS_FQDN);
+		odhcp6c_clear_state(STATE_PANA_IP);
 		odhcp6c_clear_state(STATE_NTP_IP);
 		odhcp6c_clear_state(STATE_NTP_FQDN);
 		odhcp6c_clear_state(STATE_SIP_IP);
@@ -1360,6 +1362,10 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 				// Type 34
 				if (olen % 16 == 0)
 					odhcp6c_add_state(STATE_BCMCS_IP, odata, olen);
+			} else if (otype == DHCPV6_OPT_PANA_AGENT) {
+				// Type 40
+				if (olen % 16 == 0)
+					odhcp6c_add_state(STATE_PANA_IP, odata, olen);
 			} else if (otype == DHCPV6_OPT_NTP_SERVER) {
 				// Type 56
 				uint16_t stype, slen;
