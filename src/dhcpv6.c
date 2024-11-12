@@ -1289,6 +1289,14 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 					continue;
 
 				updated_IAs += dhcpv6_parse_ia(ia_hdr, odata + olen);
+			} else if (otype == DHCPV6_OPT_AUTH) {
+				// Type 11
+				if (olen == -4 + sizeof(struct dhcpv6_auth_reconfigure)) {
+					struct dhcpv6_auth_reconfigure *r = (void*)&odata[-4];
+					if (r->protocol == 3 && r->algorithm == 1 &&
+							r->reconf_type == 1)
+						memcpy(reconf_key, r->key, sizeof(r->key));
+				}
 			} else if (otype == DHCPV6_OPT_UNICAST && olen == sizeof(server_addr)) {
 				// Type 12
 				if (!(client_options & DHCPV6_IGNORE_OPT_UNICAST))
@@ -1302,6 +1310,13 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 				uint16_t code = ((int)odata[0]) << 8 | ((int)odata[1]);
 
 				dhcpv6_handle_status_code(orig, code, mdata, mlen, &ret);
+			} else if (otype == DHCPV6_OPT_SIP_SERVER_D){
+				// Type 21
+				odhcp6c_add_state(STATE_SIP_FQDN, odata, olen);
+			} else if (otype == DHCPV6_OPT_SIP_SERVER_A) {
+				// Type 22
+				if (olen == 16)
+					odhcp6c_add_state(STATE_SIP_IP, odata, olen);
 			} else if (otype == DHCPV6_OPT_DNS_SERVERS) {
 				// Type 23
 				if (olen % 16 == 0)
@@ -1313,6 +1328,9 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 				// Type 31
 				if (olen % 16 == 0)
 					odhcp6c_add_state(STATE_SNTP_IP, odata, olen);
+			} else if (otype == DHCPV6_OPT_INFO_REFRESH && olen >= 4) {
+				// Type 32
+				refresh = ntohl_unaligned(odata);
 			} else if (otype == DHCPV6_OPT_NTP_SERVER) {
 				// Type 56
 				uint16_t stype, slen;
@@ -1327,24 +1345,6 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 					else if (slen > 0 && stype == NTP_SRV_FQDN)
 						odhcp6c_add_state(STATE_NTP_FQDN,
 								sdata, slen);
-				}
-			} else if (otype == DHCPV6_OPT_SIP_SERVER_A) {
-				// Type 22
-				if (olen == 16)
-					odhcp6c_add_state(STATE_SIP_IP, odata, olen);
-			} else if (otype == DHCPV6_OPT_SIP_SERVER_D){
-				// Type 21
-				odhcp6c_add_state(STATE_SIP_FQDN, odata, olen);
-			} else if (otype == DHCPV6_OPT_INFO_REFRESH && olen >= 4) {
-				// Type 32
-				refresh = ntohl_unaligned(odata);
-			} else if (otype == DHCPV6_OPT_AUTH) {
-				// Type 11
-				if (olen == -4 + sizeof(struct dhcpv6_auth_reconfigure)) {
-					struct dhcpv6_auth_reconfigure *r = (void*)&odata[-4];
-					if (r->protocol == 3 && r->algorithm == 1 &&
-							r->reconf_type == 1)
-						memcpy(reconf_key, r->key, sizeof(r->key));
 				}
 			} else if (otype == DHCPV6_OPT_AFTR_NAME && olen > 3) {
 				// Type 64
@@ -1372,15 +1372,15 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 				if (memcmp(&cer_id->addr, &any, sizeof(any)))
 					odhcp6c_add_state(STATE_CER, &cer_id->addr, sizeof(any));
 	#endif
-			} else if (otype == DHCPV6_OPT_S46_CONT_MAPT) {
-				// Type 95
-				odhcp6c_add_state(STATE_S46_MAPT, odata, olen);
 			} else if (otype == DHCPV6_OPT_S46_CONT_MAPE) {
 				// Type 94
 				size_t mape_len;
 				odhcp6c_get_state(STATE_S46_MAPE, &mape_len);
 				if (mape_len == 0)
 					odhcp6c_add_state(STATE_S46_MAPE, odata, olen);
+			} else if (otype == DHCPV6_OPT_S46_CONT_MAPT) {
+				// Type 95
+				odhcp6c_add_state(STATE_S46_MAPT, odata, olen);
 			} else if (otype == DHCPV6_OPT_S46_CONT_LW) {
 				// Type 96
 				odhcp6c_add_state(STATE_S46_LW, odata, olen);
