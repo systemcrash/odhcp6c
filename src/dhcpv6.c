@@ -1247,6 +1247,12 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 		odhcp6c_clear_state(STATE_MIP6_VDINF);
 		odhcp6c_clear_state(STATE_LOST_FQDN);
 		odhcp6c_clear_state(STATE_CAPWAP_IP);
+		odhcp6c_clear_state(STATE_MOS_IS_IP);
+		odhcp6c_clear_state(STATE_MOS_CS_IP);
+		odhcp6c_clear_state(STATE_MOS_CS_IP);
+		odhcp6c_clear_state(STATE_MOS_IS_FQDN);
+		odhcp6c_clear_state(STATE_MOS_CS_FQDN);
+		odhcp6c_clear_state(STATE_MOS_ES_FQDN);
 		odhcp6c_clear_state(STATE_NTP_IP);
 		odhcp6c_clear_state(STATE_NTP_FQDN);
 		odhcp6c_clear_state(STATE_SIP_IP);
@@ -1390,6 +1396,39 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 			} else if (otype == DHCPV6_OPT_CAPWAP_AC_V6) {
 				// Type 52
 				odhcp6c_add_state(STATE_CAPWAP_IP, odata, olen);
+			} else if (otype == DHCPV6_OPT_IPV6_ADDRESS_MOS) {
+				// Type 54
+				uint16_t stype, slen;
+				uint8_t *sdata;
+				// Test status and bail if error
+				dhcpv6_for_each_option(odata, odata + olen,
+						stype, slen, sdata) {
+					if (slen == 16 && stype == MOS_SUBOPT_IS)
+						odhcp6c_add_state(STATE_MOS_IS_IP,
+								sdata, slen);
+					else if (slen == 16 && stype == MOS_SUBOPT_CS)
+						odhcp6c_add_state(STATE_MOS_CS_IP,
+								sdata, slen);
+					else if (slen == 16 && stype == MOS_SUBOPT_ES)
+						odhcp6c_add_state(STATE_MOS_ES_IP,
+								sdata, slen);
+				}
+			} else if (otype == DHCPV6_OPT_IPV6_FQDN_MOS) {
+				// Type 55
+				uint16_t stype, slen;
+				uint8_t *sdata;
+				dhcpv6_for_each_option(odata, odata + olen,
+						stype, slen, sdata) {
+					if (slen > 0 && stype == MOS_SUBOPT_IS)
+						odhcp6c_add_state(STATE_MOS_IS_FQDN,
+								sdata, slen);
+					else if (slen > 0 && stype == MOS_SUBOPT_CS)
+						odhcp6c_add_state(STATE_MOS_CS_FQDN,
+								sdata, slen);
+					else if (slen > 0 && stype == MOS_SUBOPT_ES)
+						odhcp6c_add_state(STATE_MOS_ES_FQDN,
+								sdata, slen);
+				}
 			} else if (otype == DHCPV6_OPT_NTP_SERVER) {
 				// Type 56
 				uint16_t stype, slen;

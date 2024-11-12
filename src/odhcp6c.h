@@ -410,6 +410,12 @@ enum odhcp6c_state {
 	STATE_MIP6_VDINF,
 	STATE_LOST_FQDN,
 	STATE_CAPWAP_IP,
+	STATE_MOS_IS_IP,
+	STATE_MOS_CS_IP,
+	STATE_MOS_ES_IP,
+	STATE_MOS_IS_FQDN,
+	STATE_MOS_CS_FQDN,
+	STATE_MOS_ES_FQDN,
 	STATE_NTP_IP,
 	STATE_NTP_FQDN,
 	STATE_SIP_IP,
@@ -540,6 +546,13 @@ enum odhcp6c_caetlv {
 	CAETLV_RESERVED = 255
 };
 */
+
+typedef enum {
+    MOS_SUBOPT_IS = 1,
+    MOS_SUBOPT_CS,
+    MOS_SUBOPT_ES
+} subopt_code_t;
+
 
 int init_dhcpv6(const char *ifname, unsigned int client_options, int sk_prio, int sol_timeout);
 int dhcpv6_set_ia_mode(enum odhcp6c_ia_mode na, enum odhcp6c_ia_mode pd, bool stateful_only);

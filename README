@@ -79,6 +79,12 @@ Environment:
 * VDINF			A MIPv6 Visited Home Network text
 * LOST_FQDN		A space-separated list of LoST Server FQDNs.
 * CAPWAP_IP		A space-separated list of CAPWAP IPv6 addresses.
+* MOS_IS_IP		A space-separated list of MoS (Mobility Server, type 54, sub-type IS) IPv6 addresses.
+* MOS_CS_IP		A space-separated list of MoS (Mobility Server, type 54, sub-type CS) IPv6 addresses.
+* MOS_ES_IP		A space-separated list of MoS (Mobility Server, type 54, sub-type ES) IPv6 addresses.
+* MOS_IS_FQDN	A space-separated list of MoS (Mobility Server, type 55, sub-type IS) FQDNs.
+* MOS_CS_FQDN	A space-separated list of MoS (Mobility Server, type 55, sub-type CS) FQDNs.
+* MOS_ES_FQDN	A space-separated list of MoS (Mobility Server, type 55, sub-type ES) FQDNs.
 * SIP_IP		A space-separated list of SIP servers
 * SIP_DOMAIN		A space-separated list of SIP domains
 * OPTION_<num>		Custom option received as base-16

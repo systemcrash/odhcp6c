@@ -538,6 +538,12 @@ int main(_unused int argc, char* const argv[])
 		odhcp6c_clear_state(STATE_MIP6_VDINF);
 		odhcp6c_clear_state(STATE_LOST_FQDN);
 		odhcp6c_clear_state(STATE_CAPWAP_IP);
+		odhcp6c_clear_state(STATE_MOS_IS_IP);
+		odhcp6c_clear_state(STATE_MOS_CS_IP);
+		odhcp6c_clear_state(STATE_MOS_ES_IP);
+		odhcp6c_clear_state(STATE_MOS_IS_FQDN);
+		odhcp6c_clear_state(STATE_MOS_CS_FQDN);
+		odhcp6c_clear_state(STATE_MOS_ES_FQDN);
 		odhcp6c_clear_state(STATE_NTP_IP);
 		odhcp6c_clear_state(STATE_NTP_FQDN);
 		odhcp6c_clear_state(STATE_SIP_IP);
