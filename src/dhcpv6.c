@@ -1249,6 +1249,7 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 
 			if ((otype == DHCPV6_OPT_IA_PD || otype == DHCPV6_OPT_IA_NA)
 					&& olen > -4 + sizeof(struct dhcpv6_ia_hdr)) {
+				// Type 3
 				struct dhcpv6_ia_hdr *ia_hdr = (void*)(&odata[-4]);
 
 				if ((na_mode == IA_MODE_NONE && otype == DHCPV6_OPT_IA_NA) ||
@@ -1289,25 +1290,31 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 
 				updated_IAs += dhcpv6_parse_ia(ia_hdr, odata + olen);
 			} else if (otype == DHCPV6_OPT_UNICAST && olen == sizeof(server_addr)) {
+				// Type 12
 				if (!(client_options & DHCPV6_IGNORE_OPT_UNICAST))
 					server_addr = *(struct in6_addr *)odata;
 
 			}
 			else if (otype == DHCPV6_OPT_STATUS && olen >= 2) {
+				// Type 13
 				uint8_t *mdata = (olen > 2) ? &odata[2] : NULL;
 				uint16_t mlen = (olen > 2) ? olen - 2 : 0;
 				uint16_t code = ((int)odata[0]) << 8 | ((int)odata[1]);
 
 				dhcpv6_handle_status_code(orig, code, mdata, mlen, &ret);
 			} else if (otype == DHCPV6_OPT_DNS_SERVERS) {
+				// Type 23
 				if (olen % 16 == 0)
 					odhcp6c_add_state(STATE_DNS, odata, olen);
-			} else if (otype == DHCPV6_OPT_DNS_DOMAIN)
+			} else if (otype == DHCPV6_OPT_DNS_DOMAIN) {
+				// Type 24
 				odhcp6c_add_state(STATE_SEARCH, odata, olen);
-			else if (otype == DHCPV6_OPT_SNTP_SERVERS) {
+			} else if (otype == DHCPV6_OPT_SNTP_SERVERS) {
+				// Type 31
 				if (olen % 16 == 0)
 					odhcp6c_add_state(STATE_SNTP_IP, odata, olen);
 			} else if (otype == DHCPV6_OPT_NTP_SERVER) {
+				// Type 56
 				uint16_t stype, slen;
 				uint8_t *sdata;
 				// Test status and bail if error
@@ -1322,13 +1329,17 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 								sdata, slen);
 				}
 			} else if (otype == DHCPV6_OPT_SIP_SERVER_A) {
+				// Type 22
 				if (olen == 16)
 					odhcp6c_add_state(STATE_SIP_IP, odata, olen);
-			} else if (otype == DHCPV6_OPT_SIP_SERVER_D)
+			} else if (otype == DHCPV6_OPT_SIP_SERVER_D){
+				// Type 21
 				odhcp6c_add_state(STATE_SIP_FQDN, odata, olen);
-			else if (otype == DHCPV6_OPT_INFO_REFRESH && olen >= 4) {
+			} else if (otype == DHCPV6_OPT_INFO_REFRESH && olen >= 4) {
+				// Type 32
 				refresh = ntohl_unaligned(odata);
 			} else if (otype == DHCPV6_OPT_AUTH) {
+				// Type 11
 				if (olen == -4 + sizeof(struct dhcpv6_auth_reconfigure)) {
 					struct dhcpv6_auth_reconfigure *r = (void*)&odata[-4];
 					if (r->protocol == 3 && r->algorithm == 1 &&
@@ -1336,16 +1347,19 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 						memcpy(reconf_key, r->key, sizeof(r->key));
 				}
 			} else if (otype == DHCPV6_OPT_AFTR_NAME && olen > 3) {
+				// Type 64
 				size_t cur_len;
 				odhcp6c_get_state(STATE_AFTR_NAME, &cur_len);
 				if (cur_len == 0)
 					odhcp6c_add_state(STATE_AFTR_NAME, odata, olen);
 			} else if (otype == DHCPV6_OPT_SOL_MAX_RT && olen == 4) {
+				// Type 82
 				uint32_t sol_max_rt = ntohl_unaligned(odata);
 				if (sol_max_rt >= DHCPV6_SOL_MAX_RT_MIN &&
 						sol_max_rt <= DHCPV6_SOL_MAX_RT_MAX)
 					dhcpv6_retx[DHCPV6_MSG_SOLICIT].max_timeo = sol_max_rt;
 			} else if (otype == DHCPV6_OPT_INF_MAX_RT && olen == 4) {
+				// Type 83
 				uint32_t inf_max_rt = ntohl_unaligned(odata);
 				if (inf_max_rt >= DHCPV6_INF_MAX_RT_MIN &&
 						inf_max_rt <= DHCPV6_INF_MAX_RT_MAX)
@@ -1359,13 +1373,16 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _unused const int rc,
 					odhcp6c_add_state(STATE_CER, &cer_id->addr, sizeof(any));
 	#endif
 			} else if (otype == DHCPV6_OPT_S46_CONT_MAPT) {
+				// Type 95
 				odhcp6c_add_state(STATE_S46_MAPT, odata, olen);
 			} else if (otype == DHCPV6_OPT_S46_CONT_MAPE) {
+				// Type 94
 				size_t mape_len;
 				odhcp6c_get_state(STATE_S46_MAPE, &mape_len);
 				if (mape_len == 0)
 					odhcp6c_add_state(STATE_S46_MAPE, odata, olen);
 			} else if (otype == DHCPV6_OPT_S46_CONT_LW) {
+				// Type 96
 				odhcp6c_add_state(STATE_S46_LW, odata, olen);
 			} else
 				odhcp6c_add_state(STATE_CUSTOM_OPTS, &odata[-4], olen + 4);
