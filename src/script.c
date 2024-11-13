@@ -159,6 +159,108 @@ static void bin_to_env(uint8_t *opts, size_t len)
 	}
 }
 
+static void expand_fqdn(const uint8_t *fqdn, size_t len, char *buf, size_t *buf_len, size_t buf_size) {
+	const uint8_t *fqdn_end = fqdn + len;
+
+	/*
+	+------+------+------+------+------+------+------+------+------+
+	| 0x04 |   d  |   o  |   h  |  1   | 0x07 |   e  |   x  |   a  |
+	+------+------+------+------+------+------+------+------+------+
+	|   m  |   p  |   l  |   e  | 0x03 |   c  |   o  |   m  | 0x00 |
+	+------+------+------+------+------+------+------+------+------+
+	*/
+
+	// Prefix with "fqdn="
+	snprintf(&buf[*buf_len], buf_size - *buf_len, "fqdn=");
+	*buf_len += strlen(&buf[*buf_len]);
+
+	while (fqdn < fqdn_end) {
+		int l = dn_expand(fqdn, fqdn_end, fqdn, &buf[*buf_len], buf_size - *buf_len);
+		if (l <= 0) break;
+		fqdn += l;
+		*buf_len += strlen(&buf[*buf_len]);
+		buf[(*buf_len)++] = ' ';
+	}
+
+	if (buf[*buf_len - 1] == ' ') (*buf_len)--;
+}
+
+static void dnr_to_env(const char *name, const uint8_t *data, size_t len) {
+	if (len == 0) return;
+	/*
+	 0                   1                   2                   3
+	 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|       OPTION_V6_DNR           |         Option-length         |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|       Service Priority        |         ADN Length            |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	~                   authentication-domain-name                  ~
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|         Addr Length           |                               |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               |
+	~                        ipv6-address(es)                       ~
+	|                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                               |                               |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               |
+	~                 Service Parameters (SvcParams)                ~
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	*/
+
+	size_t buf_len = strlen(name);
+	char *env_buf = malloc(buf_len + 3); // name="\0
+	if (!env_buf) return;
+	memcpy(env_buf, name, buf_len);
+	env_buf[buf_len++] = '=';
+	env_buf[buf_len++] = '\"';
+	env_buf[buf_len] = '\0';
+
+	// Read ADN length
+	// skip service_priority
+	uint16_t adn_length = ntohs(*(uint16_t *)(data + 6));
+	size_t offset = 8;
+
+	// Expand FQDN from authentication-domain-name (ADN) field
+	size_t needed_len = buf_len + adn_length + 32; // Allocate space for ADN
+	env_buf = realloc(env_buf, needed_len);
+	if (!env_buf) return;
+
+	// Decode ADN as FQDN
+	expand_fqdn(data + offset, adn_length, env_buf, &buf_len, needed_len);
+	offset += adn_length;
+
+	// Check Addr Length is present and non-zero
+	if (offset + 2 <= len) {
+		uint16_t addr_length = ntohs(*(uint16_t *)(data + offset));
+		offset += 2;
+
+		// Process IPv6 addresses
+		if (addr_length > 0 && addr_length % 16 == 0 && offset + addr_length <= len) {
+			needed_len += addr_length / 16 * (INET6_ADDRSTRLEN + 1);
+			env_buf = realloc(env_buf, needed_len);
+			if (!env_buf) return;
+
+			// Prefix 1st IPv6 with "ipv6hint=" (9 chars)
+			snprintf(&env_buf[buf_len], needed_len - buf_len, " ipv6hint=");
+			buf_len += strlen(&env_buf[buf_len]);
+
+			// Loop through each IPv6 address
+			for (size_t i = 0; i < addr_length; i += 16) {
+				char ip_str[INET6_ADDRSTRLEN];
+				inet_ntop(AF_INET6, data + offset + i, ip_str, INET6_ADDRSTRLEN);
+				// Prefix a comma only after 1st iteration
+				snprintf(&env_buf[buf_len], INET6_ADDRSTRLEN + 2, "%s%s", (i == 0) ? "" : ",", ip_str);
+				buf_len += strlen(&env_buf[buf_len]);
+			}
+		}
+	}
+
+	// Service Parameters are unhandled here
+	env_buf[buf_len++] = '\"';
+	env_buf[buf_len] = '\0';
+	putenv(env_buf);
+}
+
 enum entry_type {
 	ENTRY_ADDRESS,
 	ENTRY_HOST,
@@ -439,6 +541,7 @@ void script_call(const char *status, int delay, bool resume)
 		size_t mos_is_dns_len, mos_cs_dns_len, mos_es_dns_len, mos_is_ip_len, mos_cs_ip_len, mos_es_ip_len;
 		size_t sip_ip_len, sip_fqdn_len, aftr_name_len, cer_len, addr_len;
 		size_t s46_mapt_len, s46_mape_len, s46_lw_len, passthru_len;
+		size_t dnr_len;
 
 		signal(SIGTERM, SIG_DFL);
 		if (delay > 0) {
@@ -479,6 +582,7 @@ void script_call(const char *status, int delay, bool resume)
 		uint8_t *s46_mapt = odhcp6c_get_state(STATE_S46_MAPT, &s46_mapt_len);
 		uint8_t *s46_mape = odhcp6c_get_state(STATE_S46_MAPE, &s46_mape_len);
 		uint8_t *s46_lw = odhcp6c_get_state(STATE_S46_LW, &s46_lw_len);
+		uint8_t *dnr = odhcp6c_get_state(STATE_DNR, &dnr_len);
 		uint8_t *passthru = odhcp6c_get_state(STATE_PASSTHRU, &passthru_len);
 
 		size_t prefix_len, address_len, ra_pref_len,
@@ -522,6 +626,7 @@ void script_call(const char *status, int delay, bool resume)
 		s46_to_env(STATE_S46_MAPE, s46_mape, s46_mape_len);
 		s46_to_env(STATE_S46_MAPT, s46_mapt, s46_mapt_len);
 		s46_to_env(STATE_S46_LW, s46_lw, s46_lw_len);
+		dnr_to_env("DNR", dnr, dnr_len); // Type 144
 		bin_to_env(custom, custom_len);
 
 		if (odhcp6c_is_bound()) {

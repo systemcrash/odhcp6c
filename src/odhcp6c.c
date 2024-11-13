@@ -548,6 +548,7 @@ int main(_unused int argc, char* const argv[])
 		odhcp6c_clear_state(STATE_NTP_FQDN);
 		odhcp6c_clear_state(STATE_SIP_IP);
 		odhcp6c_clear_state(STATE_SIP_FQDN);
+		odhcp6c_clear_state(STATE_DNR);
 		bound = false;
 
 		syslog(LOG_NOTICE, "(re)starting transaction on %s", ifname);

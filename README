@@ -87,6 +87,8 @@ Environment:
 * MOS_ES_FQDN	A space-separated list of MoS (Mobility Server, type 55, sub-type ES) FQDNs.
 * SIP_IP		A space-separated list of SIP servers
 * SIP_DOMAIN		A space-separated list of SIP domains
+* DNR			A space-separated list of Discovered Network-designated Resolvers (DNR: DoH, DoT, DoQ)
+				Format: fqdn=doh1.example.com ipv6hint=2001:db8::1,2001:db8::2
 * OPTION_<num>		Custom option received as base-16
 * PREFIXES		A space-separated list of prefixes currently assigned
 				Format: <prefix>/<length>,preferred,valid[,excluded=<excluded-prefix>/<length>][,class=<prefix class #>]
