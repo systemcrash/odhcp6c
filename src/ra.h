@@ -35,6 +35,20 @@ struct icmpv6_opt_route_info {
 	uint8_t prefix[];
 };
 
+struct icmpv6_opt_encrypted_dns {
+	uint8_t type;
+	uint8_t len;
+	uint16_t service_priority;
+	uint32_t lifetime;
+	uint16_t adn_length;
+	uint8_t adn[];
+	// Following elements are not always present
+	// uint16_t addr_length;
+	// uint8_t ipv6_addrs[];
+	// uint16_t svc_params_length;
+	// uint8_t svc_params[];
+};
+
 #define ND_OPT_ROUTE_INFORMATION 24
 
 

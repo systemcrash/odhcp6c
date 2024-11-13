@@ -547,6 +547,42 @@ bool ra_process(void)
 									0, ra_holdoff_interval);
 					entry->auxlen = 0;
 				}
+			} else if (opt->type == ND_OPT_ENCRYPTED_DNS && opt->len > 1) {
+				if (opt->len < 4 || opt->len % 8 != 0) {
+					continue;
+				}
+
+				struct icmpv6_opt_encrypted_dns *ed = (struct icmpv6_opt_encrypted_dns *)opt;
+				entry->valid = ed->lifetime;
+				uint8_t *adn_field = ed->adn;
+				if (ed->adn_length > opt->len * 8 - sizeof(struct icmpv6_opt_encrypted_dns)) {
+					continue;
+				}
+
+				const uint8_t *adn_end = adn_field + ed->adn_length;
+				int len = dn_expand(adn_field, adn_end, adn_field,
+						(char *)entry->auxtarget, 256);
+
+				if (len < 1)
+					continue;
+			    entry->auxlen = strlen((char *)entry->auxtarget);
+
+				uint8_t *addr_length_ptr = adn_field + ed->adn_length;
+				uint16_t addr_length = 0;
+
+				if (addr_length_ptr + sizeof(uint16_t) <= opt->data + opt->len) {
+					addr_length = ntohs(*(uint16_t*)addr_length_ptr);
+
+					uint8_t *ipv6_addresses = addr_length_ptr + 2;
+					if (addr_length > 0 && addr_length % 16 == 0) {
+						for (ssize_t i = 0; i < addr_length / 16; ++i) {
+							struct in6_addr *ipv6_addr = (struct in6_addr*)&ipv6_addresses[i * 16];
+							entry->target = *ipv6_addr;
+							changed |= odhcp6c_update_entry(STATE_DNR, entry, 0, ra_holdoff_interval);
+							break;// just take the first IPv6, otherwise we continuously overwrite STATE_DNR
+						}
+					}
+				}
 			}
 		}
 
