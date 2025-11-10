@@ -816,13 +816,48 @@ static void dhcpv6_send(enum dhcpv6_msg type, uint8_t trid[3], uint32_t ecs)
 					ia_pd[ia_pd_len++] = ex_len - 4;
 					ia_pd[ia_pd_len++] = pd_entries[j].exclusion_length;
 
-					uint32_t excl = ntohl(pd_entries[j].router.s6_addr32[1]);
-					excl >>= (64 - pd_entries[j].exclusion_length);
-					excl <<= 8 - ((pd_entries[j].exclusion_length - pd_entries[j].length) % 8);
+					uint8_t excl_len = pd_entries[j].exclusion_length;
+					uint8_t pd_len   = pd_entries[j].length;
+					uint8_t diffbits  = excl_len - pd_len;
+					uint8_t diffbytes = (diffbits + 7) / 8;
 
-					for (size_t i = ex_len - 5; i > 0; --i, excl >>= 8)
-						ia_pd[ia_pd_len + i] = excl & 0xff;
-					ia_pd_len += ex_len - 5;
+					/* Extract the lower diffbits from the excluded prefix. */
+					const uint8_t *addr = pd_entries[j].router.s6_addr;
+					uint8_t tmp[16];
+					memcpy(tmp, addr, sizeof(tmp));
+
+					/* Zero out any bits above exclusion_length to ensure clean mask */
+					if (excl_len < 128) {
+					    uint8_t maskbits = 8 - (excl_len % 8);
+					    if (maskbits != 8)
+					        tmp[excl_len / 8] &= 0xFF << maskbits;
+					    for (size_t k = excl_len / 8 + 1; k < 16; k++)
+					        tmp[k] = 0;
+					}
+
+					/*
+					 * Take the bits beyond pd_len and store them as the “excluded part”.
+					 * These occupy diffbytes starting right after the PD prefix.
+					 */
+					uint8_t start_byte = pd_len / 8;
+					uint8_t start_bit  = pd_len % 8;
+
+					uint8_t excl_bytes[16] = {0};
+					uint16_t carry = 0;
+
+					for (int k = start_byte; k < start_byte + diffbytes && k < 16; ++k) {
+					    uint16_t val = tmp[k];
+					    val <<= start_bit;
+					    val |= carry;
+					    excl_bytes[k - start_byte] = (uint8_t)(val >> 8);
+					    carry = val & 0xFF;
+					}
+
+					/* Write the excluded bits (lowest significant byte last) */
+					for (int k = 0; k < diffbytes; ++k)
+					    ia_pd[ia_pd_len + k] = excl_bytes[k];
+
+					ia_pd_len += diffbytes;
 				}
 
 				hdr->len = htons(ntohs(hdr->len) + ntohs(p.len) + 4U);
