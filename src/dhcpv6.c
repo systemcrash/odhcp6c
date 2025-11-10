@@ -756,7 +756,8 @@ static void dhcpv6_send(enum dhcpv6_msg type, uint8_t trid[3], uint32_t ecs)
 	} else {
 		// we're too lazy to count our distinct IAIDs,
 		// so just allocate maximally needed space
-		ia_pd = alloca(ia_pd_entries * (sizeof(struct dhcpv6_ia_prefix) + 10 +
+		uint8_t ex_len_max = 21; // 2 + 2 + 1 + 16; worst-case exclusion length
+		ia_pd = alloca(ia_pd_entries * (sizeof(struct dhcpv6_ia_prefix) + ex_len_max +
 					sizeof(struct dhcpv6_ia_hdr)));
 
 		for (size_t i = 0; i < ia_pd_entries; ++i) {
