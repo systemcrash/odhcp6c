@@ -1647,33 +1647,38 @@ static unsigned int dhcpv6_parse_ia(void *opt, void *end, int *ret)
 				} else if (stype == DHCPV6_OPT_PD_EXCLUDE && slen > 2) {
 					/*	RFC 6603 §4.2 Prefix Exclude option */
 					uint8_t exclude_length = sdata[0];
-					if (exclude_length > 64)
-						exclude_length = 64;
+					if (exclude_length > 128)
+						exclude_length = 128;
 
-					if (entry.length < 32 || exclude_length <= entry.length) {
+					if (entry.length >= exclude_length) {
 						update_state = false;
 						continue;
 					}
 
-					uint8_t bytes_needed = ((exclude_length - entry.length - 1) / 8) + 1;
+					uint8_t diffbits = exclude_length - entry.length;
+					uint8_t bytes_needed = (diffbits + 7) / 8;
+
 					if (slen <= bytes_needed) {
 						update_state = false;
 						continue;
 					}
 
-					// this decrements through the ipaddr bytes masking against 
-					// the address in the option until byte 0, the option length field.
-					uint32_t excluded_bits = 0;
-					do {
-						excluded_bits = excluded_bits << 8 | sdata[bytes_needed];
-					} while (--bytes_needed);
+					// Clear the lower bits in the target that will store excluded bits
+					uint8_t start_bit = entry.length;
+					for (size_t i = start_bit / 8; i < 16; ++i)
+						entry.router.s6_addr[i] = 0;
 
-					excluded_bits >>= 8 - ((exclude_length - entry.length) % 8);
-					excluded_bits <<= 64 - exclude_length;
+					// Copy the excluded bits from the option into the least-significant bits
+					for (size_t k = 0; k < bytes_needed; ++k) {
+						size_t addr_byte = 15 - k;
+						entry.router.s6_addr[addr_byte] |= sdata[slen - k - 1];
+					}
 
-					// Re-using router field to hold the exclusion
-					entry.router = entry.target; // base prefix
-					entry.router.s6_addr32[1] |= htonl(excluded_bits);
+					// If diffbits is not a multiple of 8, mask the unused high bits in the first byte
+					uint8_t unused_bits = (8 - (diffbits % 8)) % 8;
+					if (unused_bits)
+						entry.router.s6_addr[16 - bytes_needed] &= (0xFF << unused_bits);
+
 					entry.exclusion_length = exclude_length;
 				}
 			}
