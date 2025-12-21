@@ -670,6 +670,16 @@ int main(_o_unused int argc, char* const argv[])
 			dhcpv6_set_state(res < 0 ? DHCPV6_RESET : DHCPV6_BOUND);
 			break;
 
+		/* RFC9686 - Address Registration state transitions */
+		case DHCPV6_ADDR_REG:
+			req_msg_type = DHCPV6_MSG_ADDR_REG_INFORM;
+			dhcpv6_send_request(req_msg_type);
+			break;
+
+		case DHCPV6_ADDR_REG_REPLY:
+			dhcpv6_set_state(res < 0 ? DHCPV6_ADDR_REG : DHCPV6_BOUND);
+			break;
+
 		case DHCPV6_SOLICIT_PROCESSING:
 		case DHCPV6_REQUEST_PROCESSING:
 			res = dhcpv6_state_processing(req_msg_type);
@@ -686,6 +696,7 @@ int main(_o_unused int argc, char* const argv[])
 
 		case DHCPV6_RENEW_PROCESSING:
 		case DHCPV6_INFO_PROCESSING:
+		case DHCPV6_ADDR_REG_PROCESSING:
 			res = dhcpv6_state_processing(req_msg_type);
 
 			if (signal_usr1)

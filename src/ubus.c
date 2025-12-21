@@ -117,6 +117,7 @@ enum {
 	RECONFIGURE_DHCP_ATTR_MSG_RELEASE,
 	RECONFIGURE_DHCP_ATTR_MSG_DECLINE,
 	RECONFIGURE_DHCP_ATTR_MSG_INFO_REQ,
+	RECONFIGURE_DHCP_ATTR_MSG_ADDR_REG,
 	RECONFIGURE_DHCP_ATTR_IRT_DEFAULT,
 	RECONFIGURE_DHCP_ATTR_IRT_MIN,
 	RECONFIGURE_DHCP_ATTR_RAND_FACTOR,
@@ -163,6 +164,7 @@ static const struct blobmsg_policy reconfigure_dhcp_policy[RECONFIGURE_DHCP_ATTR
 	[RECONFIGURE_DHCP_ATTR_MSG_RELEASE] = { .name = "msg_release", .type = BLOBMSG_TYPE_TABLE},
 	[RECONFIGURE_DHCP_ATTR_MSG_DECLINE] = { .name = "msg_decline", .type = BLOBMSG_TYPE_TABLE},
 	[RECONFIGURE_DHCP_ATTR_MSG_INFO_REQ] = { .name = "msg_inforeq", .type = BLOBMSG_TYPE_TABLE},
+	[RECONFIGURE_DHCP_ATTR_MSG_ADDR_REG] = { .name = "msg_addrreg", .type = BLOBMSG_TYPE_TABLE},
 	[RECONFIGURE_DHCP_ATTR_IRT_DEFAULT] = { .name = "irt_default", .type = BLOBMSG_TYPE_INT32},
 	[RECONFIGURE_DHCP_ATTR_IRT_MIN] = { .name = "irt_min", .type = BLOBMSG_TYPE_INT32},
 	[RECONFIGURE_DHCP_ATTR_RAND_FACTOR] = { .name = "rand_factor", .type = BLOBMSG_TYPE_INT32},
@@ -631,6 +633,8 @@ static int ubus_handle_get_stats(struct ubus_context *ctx, _o_unused struct ubus
 	blobmsg_add_u64(&b, "dhcp_decline", stats.decline);
 	blobmsg_add_u64(&b, "dhcp_reconfigure", stats.reconfigure);
 	blobmsg_add_u64(&b, "dhcp_information_request", stats.information_request);
+	blobmsg_add_u64(&b, "dhcp_addr_reg_inform", stats.addr_reg_inform);
+	blobmsg_add_u64(&b, "dhcp_addr_reg_reply", stats.addr_reg_reply);
 	blobmsg_add_u64(&b, "dhcp_discarded_packets", stats.discarded_packets);
 	blobmsg_add_u64(&b, "dhcp_transmit_failures", stats.transmit_failures);
 
@@ -885,6 +889,14 @@ static int ubus_handle_reconfigure_dhcp(_o_unused struct ubus_context *ctx, _o_u
 
 	if ((cur = tb[RECONFIGURE_DHCP_ATTR_MSG_INFO_REQ])) {
 		if (ubus_handle_reconfigure_dhcp_rtx(CONFIG_DHCP_INFO_REQ, cur))
+			return UBUS_STATUS_INVALID_ARGUMENT;
+
+		need_reinit = true;
+		valid_args = true;
+	}
+
+	if ((cur = tb[RECONFIGURE_DHCP_ATTR_MSG_ADDR_REG])) {
+		if (ubus_handle_reconfigure_dhcp_rtx(CONFIG_DHCP_ADDR_REG, cur))
 			return UBUS_STATUS_INVALID_ARGUMENT;
 
 		need_reinit = true;

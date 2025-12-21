@@ -74,6 +74,7 @@ static reply_handler dhcpv6_handle_reply;
 static reply_handler dhcpv6_handle_advert;
 static reply_handler dhcpv6_handle_rebind_reply;
 static reply_handler dhcpv6_handle_reconfigure;
+static reply_handler dhcpv6_handle_addr_reg_reply;
 static int dhcpv6_commit_advert(void);
 
 // RFC 3315 - 5.5 Timeout and Delay values
@@ -230,6 +231,26 @@ static const struct dhcpv6_retx dhcpv6_retx_default[_DHCPV6_MSG_MAX] = {
 		-1,
 		0
 	},
+	/* RFC9686 */
+	[DHCPV6_MSG_ADDR_REG_INFORM] = {
+		0,
+		DHCPV6_ADDR_REG_INIT_RT,
+		0,
+		DHCPV6_ADDR_REG_MAX_RC,
+		"AREG",
+		dhcpv6_handle_addr_reg_reply,
+		NULL,
+		false,
+		0,
+		0,
+		0,
+		{0, 0, 0},
+		0,
+		0,
+		0,
+		-1,
+		0
+	},
 };
 static struct dhcpv6_retx dhcpv6_retx[_DHCPV6_MSG_MAX] = {0};
 
@@ -256,6 +277,27 @@ static uint8_t reconf_key[16];
 // client options
 static unsigned int client_options = 0;
 
+// RFC9686 - Address Registration support
+static bool addr_reg_enabled = false;
+static uint8_t addr_reg_desync_multiplier = 100; // 1.0 * 100 (default mid-range)
+struct addr_reg_ctx {
+	bool pending;
+	struct in6_addr addr;
+	uint32_t preferred;
+	uint32_t valid;
+};
+static struct addr_reg_ctx addr_reg_ctx = {0};
+
+/* RFC9686 - Track registered addresses and their refresh times */
+struct addr_reg_entry {
+	struct in6_addr addr;
+	uint32_t valid_lifetime;
+	uint32_t preferred_lifetime;
+	uint64_t next_refresh_time;
+	uint64_t registered_time;
+	bool is_static;
+};
+
 // counters for statistics
 static struct dhcpv6_stats dhcpv6_stats = {0};
 
@@ -280,6 +322,111 @@ static void dhcpv6_prev_state(void)
 {
 	dhcpv6_state--;
 	dhcpv6_reset_state_timeout();
+}
+
+/* RFC9686 - Schedule ADDR-REG-INFORM using existing dhcpv6_send() path */
+static int dhcpv6_build_addr_reg_inform(const struct in6_addr *addr, uint32_t valid_lifetime, uint32_t preferred_lifetime)
+{
+	size_t client_id_len;
+	void *client_id;
+
+	if (!addr_reg_enabled)
+		return -1;
+
+	client_id = odhcp6c_get_state(STATE_CLIENT_ID, &client_id_len);
+	if (!client_id || client_id_len == 0) {
+		syslog(LOG_ERR, "Cannot register address: no Client ID");
+		return -1;
+	}
+
+	addr_reg_ctx.pending = true;
+	addr_reg_ctx.addr = *addr;
+	addr_reg_ctx.preferred = preferred_lifetime;
+	addr_reg_ctx.valid = valid_lifetime;
+
+	/* Transition to ADDR_REG state to begin registration; main loop will call dhcpv6_send_request */
+	dhcpv6_set_state(DHCPV6_ADDR_REG);
+
+	return 0;
+}
+
+/* RFC9686 §4.6.1 - Calculate refresh interval with desync multiplier */
+static uint64_t dhcpv6_addr_reg_calc_refresh(uint32_t valid_lifetime, bool is_static)
+{
+	if (is_static)
+		return DHCPV6_STATIC_ADDR_REG_REFRESH_INTERVAL * 1000ULL;
+
+	/* 80% of valid lifetime with desync multiplier (0.9-1.1) */
+	uint64_t base_interval = (uint64_t)valid_lifetime * 800ULL;
+	uint64_t desync_interval = (base_interval * addr_reg_desync_multiplier) / 100ULL;
+	return desync_interval;
+}
+
+/* RFC9686 - Register or update SLAAC address */
+static void dhcpv6_register_slaac_addr(const struct in6_addr *addr, uint32_t valid_lifetime,
+				       uint32_t preferred_lifetime, bool is_static)
+{
+	size_t entries_len;
+	struct addr_reg_entry *entries;
+	struct addr_reg_entry *found = NULL;
+	uint64_t now = odhcp6c_get_milli_time();
+	bool needs_register = false;
+
+	if (!addr_reg_enabled || !addr || valid_lifetime == 0)
+		return;
+
+	entries = odhcp6c_get_state(STATE_SLAAC_ADDRS, &entries_len);
+
+	/* Find existing entry */
+	for (size_t i = 0; i < entries_len / sizeof(*entries); i++) {
+		if (IN6_ARE_ADDR_EQUAL(&entries[i].addr, addr)) {
+			found = &entries[i];
+			break;
+		}
+	}
+
+	if (found) {
+		/* RFC9686 §4.6.1 errata: Check if lifetime changed by more than 3s */
+		int32_t lifetime_diff = (int32_t)valid_lifetime - (int32_t)found->valid_lifetime;
+		if (lifetime_diff < 0)
+			lifetime_diff = -lifetime_diff;
+
+		if (lifetime_diff > DHCPV6_ADDR_REG_LIFETIME_TOLERANCE) {
+			/* Lifetime changed significantly, schedule new refresh */
+			uint64_t new_refresh = dhcpv6_addr_reg_calc_refresh(valid_lifetime, is_static);
+			found->valid_lifetime = valid_lifetime;
+			found->preferred_lifetime = preferred_lifetime;
+			found->next_refresh_time = now + new_refresh;
+			needs_register = true;
+		}
+	} else {
+		/* New address, add entry and register immediately */
+		struct addr_reg_entry new_entry = {
+			.addr = *addr,
+			.valid_lifetime = valid_lifetime,
+			.preferred_lifetime = preferred_lifetime,
+			.registered_time = now,
+			.next_refresh_time = now + dhcpv6_addr_reg_calc_refresh(valid_lifetime, is_static),
+			.is_static = is_static,
+		};
+		odhcp6c_add_state(STATE_SLAAC_ADDRS, &new_entry, sizeof(new_entry));
+		needs_register = true;
+	}
+
+	if (needs_register) {
+		char addr_str[INET6_ADDRSTRLEN];
+		inet_ntop(AF_INET6, addr, addr_str, sizeof(addr_str));
+		syslog(LOG_INFO, "Registering SLAAC address %s (valid=%u, pref=%u)",
+		       addr_str, valid_lifetime, preferred_lifetime);
+		dhcpv6_build_addr_reg_inform(addr, valid_lifetime, preferred_lifetime);
+	}
+}
+
+/* RFC9686 - Public API to register addresses from RA processing */
+void dhcpv6_register_addr(const struct in6_addr *addr, uint32_t valid_lifetime,
+			  uint32_t preferred_lifetime, bool is_static)
+{
+	dhcpv6_register_slaac_addr(addr, valid_lifetime, preferred_lifetime, is_static);
 }
 
 static void dhcpv6_inc_counter(enum dhcpv6_msg type)
@@ -325,6 +472,10 @@ static void dhcpv6_inc_counter(enum dhcpv6_msg type)
 		dhcpv6_stats.information_request++;
 		break;
 
+	case DHCPV6_MSG_ADDR_REG_INFORM:
+		dhcpv6_stats.addr_reg_inform++;
+		break;
+
 	default:
 		break;
 	}
@@ -362,6 +513,12 @@ static char *dhcpv6_msg_to_str(enum dhcpv6_msg msg)
 
 	case DHCPV6_MSG_INFO_REQ:
 		return "INFORMATION REQUEST";
+
+	case DHCPV6_MSG_ADDR_REG_INFORM:
+		return "ADDR-REG-INFORM";
+
+	case DHCPV6_MSG_ADDR_REG_REPLY:
+		return "ADDR-REG-REPLY";
 
 	default:
 		break;
@@ -469,6 +626,15 @@ const char *dhcpv6_state_to_str(enum dhcpv6_state state)
 
 	case DHCPV6_INFO_REPLY:
 		return "INFO_REPLY";
+
+	case DHCPV6_ADDR_REG:
+		return "ADDR_REG";
+
+	case DHCPV6_ADDR_REG_PROCESSING:
+		return "ADDR_REG_PROCESSING";
+
+	case DHCPV6_ADDR_REG_REPLY:
+		return "ADDR_REG_REPLY";
 
 	case DHCPV6_EXIT:
 		return "EXIT";
@@ -619,6 +785,8 @@ int init_dhcpv6(const char *ifname)
 			htons(DHCPV6_OPT_PD_EXCLUDE),
 			/* RFC8910: Clients that support this option SHOULD include it */
 			htons(DHCPV6_OPT_CAPTIVE_PORTAL),
+			/* RFC9686: Address registration option */
+			htons(DHCPV6_OPT_ADDR_REG_ENABLE),
 		};
 		odhcp6c_add_state(STATE_ORO, oro, sizeof(oro));
 	}
@@ -695,6 +863,80 @@ int dhcpv6_get_ia_mode(void)
 
 static void dhcpv6_send(enum dhcpv6_msg req_msg_type, uint8_t trid[3], uint32_t ecs)
 {
+	/* RFC9686: Special-case ADDR-REG-INFORM to reuse core send logic */
+	if (req_msg_type == DHCPV6_MSG_ADDR_REG_INFORM) {
+		size_t cl_id_len;
+		void *cl_id = odhcp6c_get_state(STATE_CLIENT_ID, &cl_id_len);
+
+		if (!addr_reg_ctx.pending) {
+			syslog(LOG_ERR, "No pending address registration context");
+			return;
+		}
+
+		if (!cl_id || cl_id_len == 0) {
+			syslog(LOG_ERR, "Cannot register address: no Client ID");
+			return;
+		}
+
+		struct dhcpv6_header hdr = {
+			.msg_type = req_msg_type,
+			.tr_id = {trid[0], trid[1], trid[2]},
+		};
+
+		struct dhcpv6_ia_addr ia = {
+			.type = htons(DHCPV6_OPT_IA_ADDR),
+			.len = htons(sizeof(ia) - DHCPV6_OPT_HDR_SIZE_U),
+			.addr = addr_reg_ctx.addr,
+			.preferred = htonl(addr_reg_ctx.preferred),
+			.valid = htonl(addr_reg_ctx.valid),
+		};
+
+		struct iovec iov[3] = {
+			{&hdr, sizeof(hdr)},
+			{cl_id, cl_id_len},
+			{&ia, sizeof(ia)},
+		};
+
+		struct sockaddr_in6 srv = {AF_INET6, htons(DHCPV6_SERVER_PORT),
+			0, ALL_DHCPV6_RELAYS, ifindex};
+
+		union {
+			struct cmsghdr hdr;
+			uint8_t buf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+		} cmsg_buf;
+		memset(&cmsg_buf, 0, sizeof(cmsg_buf));
+
+		struct msghdr msg = {
+			.msg_name = &srv,
+			.msg_namelen = sizeof(srv),
+			.msg_iov = iov,
+			.msg_iovlen = ARRAY_SIZE(iov),
+			.msg_control = cmsg_buf.buf,
+			.msg_controllen = sizeof(cmsg_buf),
+		};
+
+		struct cmsghdr *ch = (struct cmsghdr *)cmsg_buf.buf;
+		ch->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
+		ch->cmsg_level = IPPROTO_IPV6;
+		ch->cmsg_type = IPV6_PKTINFO;
+		struct in6_pktinfo *pktinfo = (struct in6_pktinfo *)CMSG_DATA(ch);
+		pktinfo->ipi6_ifindex = ifindex;
+		pktinfo->ipi6_addr = addr_reg_ctx.addr;
+
+		if (sendmsg(sock, &msg, 0) < 0) {
+			char in6_str[INET6_ADDRSTRLEN];
+
+			syslog(LOG_ERR, "Failed to send %s message to %s (%s)",
+				dhcpv6_msg_to_str(req_msg_type),
+				inet_ntop(AF_INET6, (const void *)&srv.sin6_addr,
+					in6_str, sizeof(in6_str)), strerror(errno));
+			dhcpv6_stats.transmit_failures++;
+		} else {
+			dhcpv6_inc_counter(req_msg_type);
+		}
+		return;
+	}
+
 	// Build FQDN
 	char fqdn_buf[256];
 	gethostname(fqdn_buf, sizeof(fqdn_buf));
@@ -1030,6 +1272,9 @@ static bool dhcpv6_response_is_valid(const void *buf, ssize_t len,
 	} else if (req_msg_type == DHCPV6_MSG_UNKNOWN) {
 		if (!accept_reconfig || response_buf->msg_type != DHCPV6_MSG_RECONF)
 			return false;
+	} else if (req_msg_type == DHCPV6_MSG_ADDR_REG_INFORM) {
+		if (response_buf->msg_type != DHCPV6_MSG_ADDR_REG_REPLY)
+			return false;
 	} else if (response_buf->msg_type != DHCPV6_MSG_REPLY) {
 		return false;
 	}
@@ -1049,6 +1294,9 @@ static bool dhcpv6_response_is_valid(const void *buf, ssize_t len,
 			clientid_ok = (olen + 4U == client_id_len) && !memcmp(
 					&odata[-DHCPV6_OPT_HDR_SIZE], client_id, client_id_len);
 		} else if (otype == DHCPV6_OPT_SERVERID) {
+			if (response_buf->msg_type == DHCPV6_MSG_ADDR_REG_REPLY)
+				serverid_ok = true;
+			else 
 			if (server_id_len)
 				serverid_ok = (olen + 4U == server_id_len) && !memcmp(
 						&odata[-DHCPV6_OPT_HDR_SIZE], server_id, server_id_len);
@@ -1111,7 +1359,13 @@ static bool dhcpv6_response_is_valid(const void *buf, ssize_t len,
 			ia_present = true;
 			if (olen < sizeof(struct dhcpv6_ia_hdr) - DHCPV6_OPT_HDR_SIZE)
 				options_valid = false;
-		} else if ((otype == DHCPV6_OPT_IA_ADDR) || (otype == DHCPV6_OPT_IA_PREFIX) ||
+		} else if (otype == DHCPV6_OPT_IA_ADDR) {
+			if (req_msg_type == DHCPV6_MSG_ADDR_REG_INFORM) {
+				ia_present = true;
+			} else {
+				options_valid = false;
+			}
+		} else if ((otype == DHCPV6_OPT_IA_PREFIX) ||
 				(otype == DHCPV6_OPT_PD_EXCLUDE)) {
 			// Options are not allowed on global level
 			options_valid = false;
@@ -1122,6 +1376,9 @@ static bool dhcpv6_response_is_valid(const void *buf, ssize_t len,
 		return false;
 
 	if (req_msg_type == DHCPV6_MSG_INFO_REQ && ia_present)
+		return false;
+
+	if (req_msg_type == DHCPV6_MSG_ADDR_REG_INFORM && !ia_present)
 		return false;
 
 	if (response_buf->msg_type == DHCPV6_MSG_RECONF) {
@@ -1315,6 +1572,57 @@ static int dhcpv6_handle_rebind_reply(enum dhcpv6_msg orig, const int rc,
 	return dhcpv6_handle_reply(orig, rc, opt, end, from);
 }
 
+/* RFC9686 - Handle ADDR-REG-REPLY messages */
+static int dhcpv6_handle_addr_reg_reply(enum dhcpv6_msg orig, _o_unused const int rc,
+		const void *opt, const void *end, const struct sockaddr_in6 *from)
+{
+	uint8_t *odata;
+	uint16_t otype, olen;
+	int ret = -1;
+
+	if (opt) {
+		/* RFC9686 §4.3: Extract IA Address option from reply */
+		while (opt && opt < end) {
+			odata = (uint8_t *)opt;
+			otype = ntohs(*(uint16_t *)&odata[0]);
+			olen = ntohs(*(uint16_t *)&odata[2]);
+
+			if (otype == DHCPV6_OPT_IA_ADDR && olen >= 24) {
+				struct dhcpv6_ia_addr *ia_addr = (void *)&odata[4];
+				struct in6_addr peer;
+				memcpy(&peer, &ia_addr->addr, sizeof(peer));
+
+				/* Verify this matches the address we registered */
+				if (addr_reg_ctx.pending &&
+				    IN6_ARE_ADDR_EQUAL(&peer, &addr_reg_ctx.addr)) {
+					char addr_str[INET6_ADDRSTRLEN];
+					inet_ntop(AF_INET6, &addr_reg_ctx.addr, addr_str, sizeof(addr_str));
+					syslog(LOG_INFO, "Successfully registered address %s", addr_str);
+					
+					/* Update registration timestamp */
+					size_t entries_len;
+					struct addr_reg_entry *entries = odhcp6c_get_state(STATE_SLAAC_ADDRS, &entries_len);
+					for (size_t i = 0; i < entries_len / sizeof(*entries); i++) {
+						if (IN6_ARE_ADDR_EQUAL(&entries[i].addr, &addr_reg_ctx.addr)) {
+							entries[i].registered_time = odhcp6c_get_milli_time();
+							break;
+						}
+					}
+
+					/* Clear pending context */
+					addr_reg_ctx.pending = false;
+					dhcpv6_stats.addr_reg_reply++;
+					ret = 0;
+				}
+				break;
+			}
+
+			opt = (uint8_t *)opt + olen + 4;
+		}
+	}
+
+	return ret;
+}
 static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _o_unused const int rc,
 		const void *opt, const void *end, const struct sockaddr_in6 *from)
 {
@@ -1552,6 +1860,22 @@ static int dhcpv6_handle_reply(enum dhcpv6_msg orig, _o_unused const int rc,
 					copy[uri_len] = '\0';
 					odhcp6c_add_state(STATE_CAPT_PORT_DHCPV6, odata, olen);
 					free(copy);
+				}
+				break;
+
+			case DHCPV6_OPT_ADDR_REG_ENABLE:
+				/* RFC9686: Server supports address registration
+				 * §4.4: Enable address registration unless disabled by admin */
+				if ((client_options & DHCPV6_ADDR_REG_ENABLE)) {
+					addr_reg_enabled = true;
+					syslog(LOG_INFO, "Address registration (RFC9686) enabled on server");
+					/* Initialize desync multiplier per RFC9686 §4.6.1 */
+					if (addr_reg_desync_multiplier == 100) {
+						/* Random value uniformly distributed between 0.9 and 1.1 */
+						uint16_t random_val;
+						odhcp6c_random(&random_val, sizeof(random_val));
+						addr_reg_desync_multiplier = 90 + (random_val % 21);
+					}
 				}
 				break;
 

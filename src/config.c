@@ -84,7 +84,7 @@ void config_dhcp_reset(void) {
 	config_dhcp.stateful_only_mode = false;
 	config_dhcp.ia_na_mode = IA_MODE_TRY;
 	config_dhcp.ia_pd_mode = IA_MODE_NONE;
-	config_dhcp.client_options = DHCPV6_CLIENT_FQDN | DHCPV6_ACCEPT_RECONFIGURE;
+	config_dhcp.client_options = DHCPV6_CLIENT_FQDN | DHCPV6_ACCEPT_RECONFIGURE | DHCPV6_ADDR_REG_ENABLE;
 	config_dhcp.allow_slaac_only = true;
 	config_dhcp.oro_user_cnt = 0;
 	memset(config_dhcp.message_rtx, 0, sizeof(config_dhcp.message_rtx));
@@ -610,6 +610,9 @@ void config_apply_dhcp_rtx(struct dhcpv6_retx* dhcpv6_retx)
 	dhcpv6_retx[DHCPV6_MSG_INFO_REQ].max_delay = config_dhcp.message_rtx[CONFIG_DHCP_INFO_REQ].delay_max;
 	dhcpv6_retx[DHCPV6_MSG_INFO_REQ].init_timeo = config_dhcp.message_rtx[CONFIG_DHCP_INFO_REQ].timeout_init;
 	dhcpv6_retx[DHCPV6_MSG_INFO_REQ].max_timeo = config_dhcp.message_rtx[CONFIG_DHCP_INFO_REQ].timeout_max;
+	dhcpv6_retx[DHCPV6_MSG_ADDR_REG_INFORM].init_timeo = config_dhcp.message_rtx[CONFIG_DHCP_ADDR_REG].timeout_init;
+	dhcpv6_retx[DHCPV6_MSG_ADDR_REG_INFORM].max_timeo = config_dhcp.message_rtx[CONFIG_DHCP_ADDR_REG].timeout_max;
+	dhcpv6_retx[DHCPV6_MSG_ADDR_REG_INFORM].max_rc = config_dhcp.message_rtx[CONFIG_DHCP_ADDR_REG].rc_max;
 	dhcpv6_retx[DHCPV6_MSG_RELEASE].init_timeo = config_dhcp.message_rtx[CONFIG_DHCP_RELEASE].timeout_init;
 	dhcpv6_retx[DHCPV6_MSG_RELEASE].max_rc = config_dhcp.message_rtx[CONFIG_DHCP_RELEASE].rc_max;
 	dhcpv6_retx[DHCPV6_MSG_DECLINE].init_timeo = config_dhcp.message_rtx[CONFIG_DHCP_DECLINE].timeout_init;

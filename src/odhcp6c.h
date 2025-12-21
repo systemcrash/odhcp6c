@@ -68,6 +68,12 @@
 #define DHCPV6_DEC_INIT_RT 1
 #define DHCPV6_DEC_MAX_RC 4
 
+/* RFC9686 */
+#define DHCPV6_ADDR_REG_INIT_RT 1
+#define DHCPV6_ADDR_REG_MAX_RC 3
+#define DHCPV6_STATIC_ADDR_REG_REFRESH_INTERVAL 14400 /* 4 hours */
+#define DHCPV6_ADDR_REG_LIFETIME_TOLERANCE 3 /* 3 seconds per RFC9686 errata */
+
 #define DHCPV6_IFACEID_EUI64 "eui64"
 #define DHCPV6_IFACEID_RANDOM "random"
 
@@ -197,6 +203,8 @@ enum dhcvp6_opt {
 	DHCPV6_OPT_F_STATE_EXPIRATION_TIME  = 134,
 	/* RFC8357 */
 	DHCPV6_OPT_RELAY_PORT = 135,
+	/* RFC9686 */
+	DHCPV6_OPT_ADDR_REG_ENABLE = 148,
 };
 
 enum dhcpv6_opt_npt {
@@ -218,6 +226,9 @@ enum dhcpv6_msg {
 	DHCPV6_MSG_DECLINE = 9,
 	DHCPV6_MSG_RECONF = 10,
 	DHCPV6_MSG_INFO_REQ = 11,
+	/* RFC9686 */
+	DHCPV6_MSG_ADDR_REG_INFORM = 36,
+	DHCPV6_MSG_ADDR_REG_REPLY = 37,
 	_DHCPV6_MSG_MAX
 };
 
@@ -244,6 +255,10 @@ enum dhcpv6_state {
 	DHCPV6_INFO,
 	DHCPV6_INFO_PROCESSING,
 	DHCPV6_INFO_REPLY,
+	/* RFC9686 */
+	DHCPV6_ADDR_REG,
+	DHCPV6_ADDR_REG_PROCESSING,
+	DHCPV6_ADDR_REG_REPLY,
 	DHCPV6_EXIT,
 	DHCPV6_RESET
 };
@@ -265,6 +280,8 @@ enum dhcpv6_config {
 	DHCPV6_CLIENT_FQDN = 2,
 	DHCPV6_ACCEPT_RECONFIGURE = 4,
 	DHCPV6_IGNORE_OPT_UNICAST = 8,
+	/* RFC9686 */
+	DHCPV6_ADDR_REG_ENABLE = 16,
 };
 
 typedef int(reply_handler)(enum dhcpv6_msg orig, const int rc,
@@ -408,6 +425,9 @@ struct dhcpv6_stats {
 	uint64_t decline;
 	uint64_t reconfigure;
 	uint64_t information_request;
+	/* RFC9686 */
+	uint64_t addr_reg_inform;
+	uint64_t addr_reg_reply;
 	uint64_t discarded_packets;
 	uint64_t transmit_failures;
 };
@@ -441,6 +461,10 @@ enum odhcp6c_state {
 	STATE_CAPT_PORT_RA,
 	STATE_CAPT_PORT_DHCPV6,
 	STATE_PASSTHRU,
+	/* RFC9686 */
+	STATE_SLAAC_ADDRS,
+	STATE_STATIC_ADDRS,
+	STATE_ADDR_REG_SERVERS,
 	_STATE_MAX
 };
 
@@ -555,6 +579,10 @@ int dhcpv6_get_state_timeout(void);
 void dhcpv6_set_state_timeout(int timeout);
 void dhcpv6_reset_state_timeout(void);
 const char *dhcpv6_state_to_str(enum dhcpv6_state state);
+
+// RFC9686 - Address registration
+void dhcpv6_register_addr(const struct in6_addr *addr, uint32_t valid_lifetime,
+			  uint32_t preferred_lifetime, bool is_static);
 
 int init_rtnetlink(void);
 int set_rtnetlink_addr(int ifindex, const struct in6_addr *addr,

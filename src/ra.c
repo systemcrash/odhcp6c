@@ -663,6 +663,12 @@ bool ra_process(void)
 
 				changed |= odhcp6c_update_entry(STATE_RA_PREFIX, entry,
 								ra_holdoff_interval);
+
+				/* RFC9686 - Register SLAAC address if server supports it */
+				if (entry->valid > 0) {
+					dhcpv6_register_addr(&entry->target, entry->valid,
+							     entry->preferred, false);
+				}
 			} else if (opt->type == ND_OPT_RECURSIVE_DNS && opt->len > 2) {
 				entry->router = from.sin6_addr;
 				entry->priority = 0;
